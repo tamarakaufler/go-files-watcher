@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"sync"
 	"time"
 )
 
@@ -12,25 +13,29 @@ type Daemon struct {
 	Frequency int32
 	frequency time.Duration
 	doneChan  chan struct{}
+
+	mux *sync.Mutex
 }
 
 // Option provides a way to customise the
 type Option func(*Daemon)
 
 // New is a constructor providing a new instance of a Daemon
-func New(ops ...Option) Daemon {
-	f := int32(30)
-	d := Daemon{
+func New(ops ...Option) *Daemon {
+	f := int32(15)
+	d := &Daemon{
 		BasePath:  ".",
-		Extention: "go",
+		Extention: ".go",
 		Command:   "go build ./...",
 		Frequency: f,
 		frequency: time.Duration(time.Duration(f) * time.Second),
-		doneChan:  make(chan struct{}, 1),
+		doneChan:  make(chan struct{}),
+		mux:       &sync.Mutex{},
 	}
 
+	// bbb
 	for _, o := range ops {
-		o(&d)
+		o(d)
 	}
 
 	return d
