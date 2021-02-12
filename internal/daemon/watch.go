@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +16,8 @@ import (
 // Watch watches for changes in files at regular intervals
 func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 	cmdParts := strings.Split(d.Command, " ")
+
+	// a detected change
 	doneCh := make(chan struct{})
 	tick := time.NewTicker(d.frequency)
 
@@ -36,7 +39,7 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 					d.mux.Unlock()
 					continue
 				}
-				fmt.Println("command completed successfully")
+				fmt.Print("command completed successfully\n\n")
 				d.mux.Unlock()
 			}
 		}
@@ -47,8 +50,13 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 		select {
 		case <-tick.C:
 			fmt.Println("time to repeat")
-			files := d.collectFiles(ctxR)
-			d.processFiles(ctxR, files, doneCh)
+			// implementation 1
+			// files := d.collectFiles(ctxR)
+			// d.processFiles(ctxR, files, doneCh)
+
+			// implementation 2
+			fmt.Println("PROCESSING files ...")
+			d.walkThroughFiles(ctxR, doneCh)
 		}
 	}
 }
@@ -87,4 +95,27 @@ func (d *Daemon) processFiles(ctx context.Context, files []os.FileInfo, doneCh c
 			break
 		}
 	}
+}
+
+// collectFiles checks if any watched file has changed
+func (d *Daemon) walkThroughFiles(ctx context.Context, doneCh chan struct{}) {
+	filepath.Walk(d.BasePath, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() ||
+			strings.HasPrefix(path, ".git") ||
+			(!info.IsDir() && filepath.Ext(path) != d.Extention) {
+			return nil
+		}
+
+		fmt.Printf("FILE info:  %s\n", info.Name())
+
+		lastChecked := time.Now().Add(-d.frequency)
+		if info.ModTime().After(lastChecked) {
+			fmt.Printf("\tFile %s has changed\n", info.Name())
+			// trigger running of the command
+			doneCh <- struct{}{}
+			// return any known error to stop walking through the dir content
+			return io.EOF
+		}
+		return nil
+	})
 }
