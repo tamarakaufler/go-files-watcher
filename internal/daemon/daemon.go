@@ -33,7 +33,6 @@ func New(ops ...Option) *Daemon {
 		mux:       &sync.Mutex{},
 	}
 
-	// bbb
 	for _, o := range ops {
 		o(d)
 	}
