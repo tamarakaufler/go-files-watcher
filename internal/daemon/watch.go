@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -15,6 +16,7 @@ import (
 
 // Watch watches for changes in files at regular intervals
 func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
+	fmt.Println("\nStarting the watcher daemon")
 	cmdParts := strings.Split(d.Command, " ")
 
 	// a detected change
@@ -25,14 +27,14 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 		for {
 			select {
 			case <-sigCh:
-				fmt.Println("signal sent")
+				fmt.Println("You interrupted me 👹!")
 				os.Exit(0)
 			case <-doneCh:
 				d.mux.Lock()
 
 				cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
-				// cmd.Stdout = os.Stdout
-				// cmd.Stderr = os.Stderr
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
 				err := cmd.Run()
 				if err != nil {
 					fmt.Printf("ERROR: %s\n", errors.Wrap(err, "error occurred processing during file watch"))
@@ -49,14 +51,18 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 		ctxR := context.Context(ctx)
 		select {
 		case <-tick.C:
-			fmt.Println("time to repeat")
+			//fmt.Println("time to repeat")
+
 			// implementation 1
 			// files := d.collectFiles(ctxR)
 			// d.processFiles(ctxR, files, doneCh)
 
 			// implementation 2
-			fmt.Println("PROCESSING files ...")
-			d.walkThroughFiles(ctxR, doneCh)
+			// d.walkThroughFiles(ctxR, doneCh)
+
+			// implementation 3
+			files := d.collectFiles(ctxR)
+			d.processFilesInParallel(ctxR, files, doneCh)
 		}
 	}
 }
@@ -73,7 +79,7 @@ func (d *Daemon) collectFiles(ctx context.Context) []os.FileInfo {
 		}
 
 		files = append(files, info)
-		fmt.Printf("FILE info:  %s\n", info.Name())
+		//fmt.Printf("FILE info:  %s\n", info.Name())
 
 		return nil
 	})
@@ -118,4 +124,36 @@ func (d *Daemon) walkThroughFiles(ctx context.Context, doneCh chan struct{}) {
 		}
 		return nil
 	})
+}
+
+func (d *Daemon) processFilesInParallel(ctx context.Context, files []os.FileInfo, doneCh chan struct{}) {
+	wg := &sync.WaitGroup{}
+
+	stopCh := make(chan struct{})
+	continueCh := make(chan struct{})
+
+	for _, f := range files {
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, f os.FileInfo, doneCh chan struct{}, stopCh chan struct{}) {
+			defer wg.Done()
+			time.Sleep(100 * time.Millisecond)
+
+			lastChecked := time.Now().Add(-d.frequency)
+			if f.ModTime().After(lastChecked) {
+				fmt.Printf("File %s has changed\n", f.Name())
+				stopCh <- struct{}{}
+				return
+			}
+			continueCh <- struct{}{}
+		}(wg, f, doneCh, stopCh)
+
+		select {
+		case <-stopCh:
+			doneCh <- struct{}{}
+			break
+		case <-continueCh:
+		}
+	}
+
+	wg.Wait()
 }

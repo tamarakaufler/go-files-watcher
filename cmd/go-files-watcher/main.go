@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -18,8 +17,8 @@ func main() {
 
 	d := daemon.New(
 		daemon.WithFrequency(5),
-		daemon.WithCommand("go build -o go-files-watcher cmd/go-files-watcher/main.go"))
-	fmt.Printf("%+v\n", d)
+		//daemon.WithCommand("go build -o go-files-watcher cmd/go-files-watcher/main.go"))
+		daemon.WithCommand("tree"))
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(d.Frequency)*time.Second)
 	defer cancel()

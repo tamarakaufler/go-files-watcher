@@ -26,7 +26,7 @@ func New(ops ...Option) *Daemon {
 	d := &Daemon{
 		BasePath:  ".",
 		Extention: ".go",
-		Command:   "go build ./...",
+		Command:   "la -la",
 		Frequency: f,
 		frequency: time.Duration(time.Duration(f) * time.Second),
 		doneChan:  make(chan struct{}),
