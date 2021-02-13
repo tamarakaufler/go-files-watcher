@@ -20,8 +20,8 @@ versions are commented out ((*Daemon).Watch method).
 ## Parellelized implementation
 
 Uses filepath.Walk to collect files that are under watch, ie excluding those that:
-  - dont have the required extension
-  - are configured to be excluded
+  * dont have the required extension
+  * are configured to be excluded
 
 The resulting files are looped through, each processed in a separate goroutine to check whether the file
 has been modified since the last check. When a change has been detected a message is sent to a channel to
@@ -29,8 +29,8 @@ stop further looping and to stop already spun up gouroutines.
 
 # TODO
 
-- tests
-- Makefile
-- golanci-lint
+* tests
+* Makefile
+* golanci-lint
 
-- implement version 2 suitable for running in a Docker container
+* implement version 2 suitable for running in a Docker container
