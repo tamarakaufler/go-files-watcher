@@ -1,10 +1,6 @@
-# go-files-watcher
-Go implementation of a daemon to watch for changed files
-
 # Synopsis
 
-This is an implementation of a daemon for montoring files changes and running
-a command when change is detected.
+Go implementation of a daemon for montoring file changes and running a command when change is detected.
 
 The configurable options are:
             default
@@ -30,7 +26,6 @@ Uses filepath.Walk to collect files that are under watch, ie excluding those tha
 The resulting files are looped through, each processed in a separate goroutine to check whether the file
 has been modified since the last check. When a change has been detected a message is sent to a channel to
 stop further looping and to stop already spun up gouroutines.
-
 
 # TODO
 
