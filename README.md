@@ -4,13 +4,15 @@ Go implementation of a daemon for montoring file changes and running a command w
 
 The configurable options are:
 
+------------------+---------------------------------------------------
                         default
----------------------------------------------------------------------
+------------------+---------------------------------------------------
   * BasePath            directory where the watcher daemon is started
   * Extension           .go (currently only one)
   * Command             tree (command to run upon detected change)
   * Excluded            none ( a list of strings/regexes)
   * Frequency           5sec (repeat of the check)
+------------------+---------------------------------------------------
 
 # Implementation
 
