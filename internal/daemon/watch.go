@@ -112,7 +112,7 @@ func (d *Daemon) CollectFiles(ctx context.Context) []os.FileInfo {
 		}
 
 		if len(d.Excluded) != 0 {
-			isExcl, err := d.IsExcluded(ctx, path, info)
+			isExcl, err := d.IsExcluded(ctx, path, info.Name())
 			if err != nil {
 				panic(errors.Wrap(err, "cannot proccess exclusion of files"))
 			}
@@ -183,21 +183,21 @@ func (d *Daemon) processFilesInParallel(ctx context.Context, files []os.FileInfo
 }
 
 // IsExcluded filters files based on custom exclusion configuration
-func (d *Daemon) IsExcluded(ctx context.Context, path string, info os.FileInfo) (bool, error) {
+func (d *Daemon) IsExcluded(ctx context.Context, path, name string) (bool, error) {
 	toExclude := false
 
 	for _, ex := range d.Excluded {
 		// deal with regex
-		if strings.Contains(ex, "*") {
+		if strings.ContainsAny(ex, "*?{}[]()+") {
 			r, err := regexp.Compile(ex)
 			if err != nil {
 				return false, errors.Wrap(err, "cannot exclude files")
 			}
-			if r.Match([]byte(path)) {
+			if r.MatchString(path) {
 				return true, nil
 			}
 			// deal with exact matches
-		} else if info.Name() == ex || path == ex {
+		} else if name == ex || path == ex {
 			return true, nil
 		}
 
