@@ -63,11 +63,11 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 			// d.walkThroughFiles(ctxR, doneCh)
 
 			// implementation 2
-			// files := d.collectFiles(ctxR)
+			// files := d.CollectFiles(ctxR)
 			// d.processFiles(ctxR, files, doneCh)
 
 			// implementation 3
-			files := d.collectFiles(ctxR)
+			files := d.CollectFiles(ctxR)
 			d.processFilesInParallel(ctxR, files, doneCh)
 		case <-cancelCh:
 			cancel()
@@ -75,7 +75,7 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 	}
 }
 
-// collectFiles checks if any watched file has changed.
+// CollectFiles checks if any watched file has changed.
 // The Walk function continues the walk while theere is no error and stops
 // when the filepath.WalkFunc exits with error.
 func (d *Daemon) walkThroughFiles(ctx context.Context, doneCh chan struct{}) {
@@ -100,11 +100,14 @@ func (d *Daemon) walkThroughFiles(ctx context.Context, doneCh chan struct{}) {
 	})
 }
 
-// collectFiles checks if any watched file has changed
-func (d *Daemon) collectFiles(ctx context.Context) []os.FileInfo {
+// CollectFiles checks if any watched file has changed
+func (d *Daemon) CollectFiles(ctx context.Context) []os.FileInfo {
 	var files []os.FileInfo
 
 	filepath.Walk(d.BasePath, func(path string, info os.FileInfo, err error) error {
+		//fmt.Println(os.Getwd())
+		//fmt.Printf("\n\npath: %s,\ninfo: %+v, error: %+v\n\n", path, info, err)
+
 		if info.IsDir() ||
 			strings.HasPrefix(path, ".git") ||
 			(!info.IsDir() && filepath.Ext(path) != d.Extention) {
@@ -112,7 +115,7 @@ func (d *Daemon) collectFiles(ctx context.Context) []os.FileInfo {
 		}
 
 		if len(d.Excluded) != 0 {
-			isExcl, err := d.isExcluded(ctx, path, info)
+			isExcl, err := d.IsExcluded(ctx, path, info)
 			if err != nil {
 				panic(errors.Wrap(err, "cannot proccess exclusion of files"))
 			}
@@ -182,7 +185,8 @@ func (d *Daemon) processFilesInParallel(ctx context.Context, files []os.FileInfo
 	wg.Wait()
 }
 
-func (d *Daemon) isExcluded(ctx context.Context, path string, info os.FileInfo) (bool, error) {
+// IsExcluded filters files based on custom exclusion configuration
+func (d *Daemon) IsExcluded(ctx context.Context, path string, info os.FileInfo) (bool, error) {
 	toExclude := false
 
 	for _, ex := range d.Excluded {

@@ -16,10 +16,11 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	d := daemon.New(
-		daemon.WithFrequency(5),
-		//daemon.WithCommand("go build -o go-files-watcher cmd/go-files-watcher/main.go"))
 		daemon.WithCommand("tree"),
-		daemon.WithExcluded([]string{"internal/daemon/fixtures/basepath/subdir1/*", "test.go"}))
+		//daemon.WithCommand("go build -o go-files-watcher cmd/go-files-watcher/main.go"))
+		daemon.WithExcluded([]string{"internal/daemon/fixtures/*"}),
+		daemon.WithFrequency(5),
+	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(d.Frequency)*time.Second)
 	defer cancel()
