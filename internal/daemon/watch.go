@@ -105,9 +105,6 @@ func (d *Daemon) CollectFiles(ctx context.Context) []os.FileInfo {
 	var files []os.FileInfo
 
 	filepath.Walk(d.BasePath, func(path string, info os.FileInfo, err error) error {
-		//fmt.Println(os.Getwd())
-		//fmt.Printf("\n\npath: %s,\ninfo: %+v, error: %+v\n\n", path, info, err)
-
 		if info.IsDir() ||
 			strings.HasPrefix(path, ".git") ||
 			(!info.IsDir() && filepath.Ext(path) != d.Extention) {
