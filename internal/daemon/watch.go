@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -67,6 +68,31 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 	}
 }
 
+// collectFiles checks if any watched file has changed.
+// The Walk function continues the walk while theere is no error and stops
+// when the filepath.WalkFunc exits with error.
+func (d *Daemon) walkThroughFiles(ctx context.Context, doneCh chan struct{}) {
+	filepath.Walk(d.BasePath, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() ||
+			strings.HasPrefix(path, ".git") ||
+			(!info.IsDir() && filepath.Ext(path) != d.Extention) {
+			return nil
+		}
+
+		fmt.Printf("FILE info:  %s\n", info.Name())
+
+		lastChecked := time.Now().Add(-d.frequency)
+		if info.ModTime().After(lastChecked) {
+			fmt.Printf("\tFile %s has changed\n", info.Name())
+			// trigger running of the command
+			doneCh <- struct{}{}
+			// return any known error to stop walking through the dir content
+			return io.EOF
+		}
+		return nil
+	})
+}
+
 // collectFiles checks if any watched file has changed
 func (d *Daemon) collectFiles(ctx context.Context) []os.FileInfo {
 	var files []os.FileInfo
@@ -75,11 +101,21 @@ func (d *Daemon) collectFiles(ctx context.Context) []os.FileInfo {
 		if info.IsDir() ||
 			strings.HasPrefix(path, ".git") ||
 			(!info.IsDir() && filepath.Ext(path) != d.Extention) {
-			return err
+			return err // this will be nil if there is no problem with the file
+		}
+
+		if len(d.Excluded) != 0 {
+			isExcl, err := d.isExcluded(path, info)
+			if err != nil {
+				panic(errors.Wrap(err, "cannot proccess exclusion of files"))
+			}
+			if isExcl {
+				return nil
+			}
 		}
 
 		files = append(files, info)
-		//fmt.Printf("FILE info:  %s\n", info.Name())
+		fmt.Printf("FILE info:  %s - %s\n", path, info.Name())
 
 		return nil
 	})
@@ -103,35 +139,16 @@ func (d *Daemon) processFiles(ctx context.Context, files []os.FileInfo, doneCh c
 	}
 }
 
-// collectFiles checks if any watched file has changed
-func (d *Daemon) walkThroughFiles(ctx context.Context, doneCh chan struct{}) {
-	filepath.Walk(d.BasePath, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() ||
-			strings.HasPrefix(path, ".git") ||
-			(!info.IsDir() && filepath.Ext(path) != d.Extention) {
-			return nil
-		}
-
-		fmt.Printf("FILE info:  %s\n", info.Name())
-
-		lastChecked := time.Now().Add(-d.frequency)
-		if info.ModTime().After(lastChecked) {
-			fmt.Printf("\tFile %s has changed\n", info.Name())
-			// trigger running of the command
-			doneCh <- struct{}{}
-			// return any known error to stop walking through the dir content
-			return io.EOF
-		}
-		return nil
-	})
-}
-
 func (d *Daemon) processFilesInParallel(ctx context.Context, files []os.FileInfo, doneCh chan struct{}) {
 	wg := &sync.WaitGroup{}
 
 	stopCh := make(chan struct{})
 	continueCh := make(chan struct{})
 
+	// Files are checked in parallel. When a change is found, a message is sent
+	// to the doneCh channel to interrupt the looping through the rest of the files. When no chenge is found, a message is sent to the continueCh channel to continue looping.
+	// Note: I triend to use select default to continue the looping but that
+	// did not work.
 	for _, f := range files {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, f os.FileInfo, doneCh chan struct{}, stopCh chan struct{}) {
@@ -156,4 +173,26 @@ func (d *Daemon) processFilesInParallel(ctx context.Context, files []os.FileInfo
 	}
 
 	wg.Wait()
+}
+
+func (d *Daemon) isExcluded(path string, info os.FileInfo) (bool, error) {
+	toExclude := false
+
+	for _, ex := range d.Excluded {
+		// deal with regex
+		if strings.Contains(ex, "*") {
+			r, err := regexp.Compile(ex)
+			if err != nil {
+				return false, errors.Wrap(err, "cannot exclude files")
+			}
+			if r.Match([]byte(path)) {
+				return true, nil
+			}
+			// deal with exact matches
+		} else if info.Name() == ex || path == ex {
+			return true, nil
+		}
+
+	}
+	return toExclude, nil
 }

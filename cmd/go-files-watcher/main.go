@@ -18,7 +18,8 @@ func main() {
 	d := daemon.New(
 		daemon.WithFrequency(5),
 		//daemon.WithCommand("go build -o go-files-watcher cmd/go-files-watcher/main.go"))
-		daemon.WithCommand("tree"))
+		daemon.WithCommand("tree"),
+		daemon.WithExcluded([]string{"internal/daemon/fixtures/basepath/subdir1/*", "test.go"}))
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(d.Frequency)*time.Second)
 	defer cancel()

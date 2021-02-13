@@ -10,6 +10,7 @@ type Daemon struct {
 	BasePath  string
 	Extention string
 	Command   string
+	Excluded  []string
 	Frequency int32
 	frequency time.Duration
 	doneChan  chan struct{}
@@ -27,6 +28,7 @@ func New(ops ...Option) *Daemon {
 		BasePath:  ".",
 		Extention: ".go",
 		Command:   "la -la",
+		Excluded:  []string{},
 		Frequency: f,
 		frequency: time.Duration(time.Duration(f) * time.Second),
 		doneChan:  make(chan struct{}),
@@ -40,14 +42,14 @@ func New(ops ...Option) *Daemon {
 	return d
 }
 
-// WithBasePath allows to override default BasePath configuration
+// WithBasePath allows to override default BasePath configuration.
 func WithBasePath(bp string) Option {
 	return func(d *Daemon) {
 		d.BasePath = bp
 	}
 }
 
-// WithExtension allows to override default file extension configuration
+// WithExtension allows to override default file extension configuration.
 func WithExtension(ex string) Option {
 	return func(d *Daemon) {
 		d.Extention = ex
@@ -55,14 +57,21 @@ func WithExtension(ex string) Option {
 }
 
 // WithCommand allows to override default configuration of a command
-// to run when a file change is detected
+// to run when a file change is detected.
 func WithCommand(c string) Option {
 	return func(d *Daemon) {
 		d.Command = c
 	}
 }
 
-// WithFrequency allows to override default frequency configuration
+// WithExcluded allows to provide a list of paths to exclude.
+func WithExcluded(ex []string) Option {
+	return func(d *Daemon) {
+		d.Excluded = ex
+	}
+}
+
+// WithFrequency allows to override default frequency configuration.
 func WithFrequency(f int32) Option {
 	return func(d *Daemon) {
 		d.Frequency = f
