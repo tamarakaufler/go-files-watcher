@@ -54,11 +54,11 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 			//fmt.Println("time to repeat")
 
 			// implementation 1
-			// files := d.collectFiles(ctxR)
-			// d.processFiles(ctxR, files, doneCh)
+			// d.walkThroughFiles(ctxR, doneCh)
 
 			// implementation 2
-			// d.walkThroughFiles(ctxR, doneCh)
+			// files := d.collectFiles(ctxR)
+			// d.processFiles(ctxR, files, doneCh)
 
 			// implementation 3
 			files := d.collectFiles(ctxR)
