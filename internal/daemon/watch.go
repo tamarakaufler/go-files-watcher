@@ -17,11 +17,14 @@ import (
 
 // Watch watches for changes in files at regular intervals
 func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
-	fmt.Println("\nStarting the watcher daemon")
+	fmt.Print("\nStarting the watcher daemon ⌚ 👀 ... \n\n")
 	cmdParts := strings.Split(d.Command, " ")
 
-	// a detected change
+	// use when a change is detected to avoid processing further files
 	doneCh := make(chan struct{})
+	// use when a change is detected, after successfully running the command,
+	// to cancel already created goroutines
+	cancelCh := make(chan struct{})
 	tick := time.NewTicker(d.frequency)
 
 	go func() {
@@ -34,11 +37,13 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 				d.mux.Lock()
 
 				cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
+				// these can be commented out if not needed
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				err := cmd.Run()
 				if err != nil {
 					fmt.Printf("ERROR: %s\n", errors.Wrap(err, "error occurred processing during file watch"))
+					cancelCh <- struct{}{}
 					d.mux.Unlock()
 					continue
 				}
@@ -49,7 +54,7 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 	}()
 
 	for {
-		ctxR := context.Context(ctx)
+		ctxR, cancel := context.WithCancel(ctx)
 		select {
 		case <-tick.C:
 			//fmt.Println("time to repeat")
@@ -64,6 +69,8 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 			// implementation 3
 			files := d.collectFiles(ctxR)
 			d.processFilesInParallel(ctxR, files, doneCh)
+		case <-cancelCh:
+			cancel()
 		}
 	}
 }
@@ -105,7 +112,7 @@ func (d *Daemon) collectFiles(ctx context.Context) []os.FileInfo {
 		}
 
 		if len(d.Excluded) != 0 {
-			isExcl, err := d.isExcluded(path, info)
+			isExcl, err := d.isExcluded(ctx, path, info)
 			if err != nil {
 				panic(errors.Wrap(err, "cannot proccess exclusion of files"))
 			}
@@ -115,7 +122,7 @@ func (d *Daemon) collectFiles(ctx context.Context) []os.FileInfo {
 		}
 
 		files = append(files, info)
-		fmt.Printf("FILE info:  %s - %s\n", path, info.Name())
+		//fmt.Printf("FILE info:  %s - %s\n", path, info.Name())
 
 		return nil
 	})
@@ -175,7 +182,7 @@ func (d *Daemon) processFilesInParallel(ctx context.Context, files []os.FileInfo
 	wg.Wait()
 }
 
-func (d *Daemon) isExcluded(path string, info os.FileInfo) (bool, error) {
+func (d *Daemon) isExcluded(ctx context.Context, path string, info os.FileInfo) (bool, error) {
 	toExclude := false
 
 	for _, ex := range d.Excluded {
