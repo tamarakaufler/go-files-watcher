@@ -3,7 +3,8 @@
 Go implementation of a daemon for montoring file changes and running a command when change is detected.
 
 The configurable options are:
-            default
+
+                        default
 ------------------------------
   * BasePath    directory where the watcher daemon is started
   * Extension   .go (currently only one)
