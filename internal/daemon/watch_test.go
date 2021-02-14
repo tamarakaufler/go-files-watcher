@@ -2,8 +2,10 @@ package daemon_test
 
 import (
 	"context"
+	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/tamarakaufler/go-files-watcher/internal/daemon"
 )
@@ -329,6 +331,96 @@ func TestDaemon_IsExcluded(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("Daemon.IsExcluded() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestDaemon_ProcessFilesInParallel(t *testing.T) {
+	t.Parallel()
+	type fields struct {
+		BasePath  string
+		Extention string
+		Command   string
+		Excluded  []string
+		Frequency int32
+	}
+	type args struct {
+		ctx    context.Context
+		doneCh chan struct{}
+	}
+	tests := []struct {
+		name         string
+		fields       fields
+		args         args
+		expectChange bool
+	}{
+		{
+			name: "processing files - no change",
+			fields: fields{
+				BasePath:  "fixtures/basepath/subdir1",
+				Extention: ".go",
+				Command:   "echo \"Hello world\"",
+				Excluded:  []string{},
+				Frequency: 2,
+			},
+			args: args{
+				ctx:    context.Background(),
+				doneCh: make(chan struct{}),
+			},
+			expectChange: false,
+		},
+		{
+			name: "processing files - file changed",
+			fields: fields{
+				BasePath:  "fixtures/basepath/subdir2",
+				Extention: ".go",
+				Command:   "echo \"Hello world\"",
+				Excluded:  []string{},
+				Frequency: 3,
+			},
+			args: args{
+				ctx:    context.Background(),
+				doneCh: make(chan struct{}),
+			},
+			expectChange: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := daemon.New(
+				daemon.WithBasePath(tt.fields.BasePath),
+				daemon.WithCommand(tt.fields.Command),
+				daemon.WithExcluded(tt.fields.Excluded),
+				daemon.WithFrequency(tt.fields.Frequency),
+			)
+
+			// Within this gouroutine we verify
+			go func() {
+				timeout := time.After(time.Duration(tt.fields.Frequency+1) * time.Second)
+				if tt.expectChange {
+					select {
+					case <-tt.args.doneCh: // receiving on this channel is expected if a change is detected
+					case <-timeout:
+						t.Error("TestDaemon_ProcessFilesInParallel - change should have been detected")
+					}
+				} else {
+					select {
+					case <-tt.args.doneCh: // receiving on this channel is not expected if a change is detected
+						t.Error("TestDaemon_ProcessFilesInParallel - change was detected")
+					case <-timeout:
+					}
+				}
+			}()
+
+			files := d.CollectFiles(tt.args.ctx)
+			if tt.expectChange {
+				// simulate change
+				err := os.Chtimes(files[0].Path, time.Now(), time.Now())
+				if err != nil {
+					t.Errorf("TestDaemon_ProcessFilesInParallel - %s", err)
+				}
+			}
+			d.ProcessFilesInParallel(tt.args.ctx, files, tt.args.doneCh)
 		})
 	}
 }

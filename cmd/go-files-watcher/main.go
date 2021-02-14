@@ -16,7 +16,7 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	d := daemon.New(
-		daemon.WithCommand("tree"),
+		daemon.WithCommand("echo \"Hello world\""),
 		//daemon.WithCommand("go build -o go-files-watcher cmd/go-files-watcher/main.go"))
 		daemon.WithExcluded([]string{"internal/daemon/fixtures/*"}),
 		daemon.WithFrequency(5),

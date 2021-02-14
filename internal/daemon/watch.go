@@ -76,7 +76,7 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 
 			// implementation 3
 			files := d.CollectFiles(ctxR)
-			d.processFilesInParallel(ctxR, files, doneCh)
+			d.ProcessFilesInParallel(ctxR, files, doneCh)
 		case <-cancelCh:
 			cancel()
 		}
@@ -158,7 +158,8 @@ func (d *Daemon) processFiles(ctx context.Context, files []FileInfo, doneCh chan
 	}
 }
 
-func (d *Daemon) processFilesInParallel(ctx context.Context, files []FileInfo, doneCh chan struct{}) {
+// ProcessFilesInParallel checks files in parallel.
+func (d *Daemon) ProcessFilesInParallel(ctx context.Context, files []FileInfo, doneCh chan struct{}) {
 	wg := &sync.WaitGroup{}
 
 	stopCh := make(chan struct{})
@@ -168,7 +169,11 @@ func (d *Daemon) processFilesInParallel(ctx context.Context, files []FileInfo, d
 	// to the doneCh channel to interrupt the looping through the rest of the files. When no chenge is found, a message is sent to the continueCh channel to continue looping.
 	// Note: I triend to use select default to continue the looping but that
 	// did not work.
+	fmt.Println("---------------")
+LOOP:
 	for _, f := range files {
+		fmt.Printf("--> processing file %s\n", f.Name)
+
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, f FileInfo, doneCh chan struct{}, stopCh chan struct{}) {
 			defer wg.Done()
@@ -186,10 +191,12 @@ func (d *Daemon) processFilesInParallel(ctx context.Context, files []FileInfo, d
 		select {
 		case <-stopCh:
 			doneCh <- struct{}{}
-			break
+			fmt.Printf("\t--> finishing with file %s\n\n", f.Name)
+			break LOOP
 		case <-continueCh:
 		}
 	}
+	fmt.Println("---------------")
 
 	wg.Wait()
 }
