@@ -6,7 +6,7 @@ The configurable options are:
 
 |                |                  |                default                                        |
 |:---------------|:-----------------|:-------------------------------------------------------------:|
-|  BasePath      |  string          |   current dir (directory where the watcher daemon is started) |
+|  BasePath      |  string          |   current dir (directory that the watcher daemon starts monitoring) |
 |  Extension     |  string          |   .go (currently only one)                                    |
 |  Command       |  string          |   echo "Hello world" (command to run upon detected change)    |
 |  Excluded      |  list of strings |   none (a list of strings/regexes)                            |
