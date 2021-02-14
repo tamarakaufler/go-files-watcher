@@ -9,7 +9,7 @@ The configurable options are:
 |  BasePath      |  string          |   current dir (directory that the watcher daemon starts monitoring) |
 |  Extension     |  string          |   .go (currently only one)                                    |
 |  Command       |  string          |   echo "Hello world" (command to run upon detected change)    |
-|  Excluded      |  list of strings |   none (a list of strings/regexes)                            |
+|  Excluded      |  list of strings |   none (a list of strings/regexes specifying files to exclude) |                            |
 |  Frequency     |  int32           |   5 (sec) (repeat of the check)                               |
 
 # Implementation
@@ -30,7 +30,6 @@ stop further looping and to stop already spun up gouroutines.
 
 # TODO
 
-* tests
 * Makefile
 * golanci-lint
 
