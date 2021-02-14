@@ -2,14 +2,13 @@ package daemon_test
 
 import (
 	"context"
-	"os"
 	"reflect"
 	"testing"
 
 	"github.com/tamarakaufler/go-files-watcher/internal/daemon"
 )
 
-func TestDaemon_CollectFiles_HappyPath(t *testing.T) {
+func TestDaemon_CollectFiles(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -89,10 +88,10 @@ func TestDaemon_CollectFiles_HappyPath(t *testing.T) {
 	}
 }
 
-func extractNames(files []os.FileInfo) []string {
+func extractNames(files []daemon.FileInfo) []string {
 	names := []string{}
 	for _, f := range files {
-		names = append(names, f.Name())
+		names = append(names, f.Name)
 	}
 	return names
 }

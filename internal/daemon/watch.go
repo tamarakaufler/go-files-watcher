@@ -15,6 +15,14 @@ import (
 	"github.com/pkg/errors"
 )
 
+// FileInfo captures file path, name and modification time.
+// This information is required for the watch functionality.
+type FileInfo struct {
+	Path    string
+	Name    string
+	ModTime time.Time
+}
+
 // Watch watches for changes in files at regular intervals
 func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 	fmt.Print("\nStarting the watcher daemon ⌚ 👀 ... \n\n")
@@ -101,8 +109,8 @@ func (d *Daemon) walkThroughFiles(ctx context.Context, doneCh chan struct{}) {
 }
 
 // CollectFiles checks if any watched file has changed
-func (d *Daemon) CollectFiles(ctx context.Context) []os.FileInfo {
-	var files []os.FileInfo
+func (d *Daemon) CollectFiles(ctx context.Context) []FileInfo {
+	var files []FileInfo
 
 	filepath.Walk(d.BasePath, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() ||
@@ -121,7 +129,11 @@ func (d *Daemon) CollectFiles(ctx context.Context) []os.FileInfo {
 			}
 		}
 
-		files = append(files, info)
+		files = append(files, FileInfo{
+			Path:    path,
+			Name:    info.Name(),
+			ModTime: info.ModTime(),
+		})
 		//fmt.Printf("FILE info:  %s - %s\n", path, info.Name())
 
 		return nil
@@ -130,7 +142,7 @@ func (d *Daemon) CollectFiles(ctx context.Context) []os.FileInfo {
 	return files
 }
 
-func (d *Daemon) processFiles(ctx context.Context, files []os.FileInfo, doneCh chan struct{}) {
+func (d *Daemon) processFiles(ctx context.Context, files []FileInfo, doneCh chan struct{}) {
 
 	fmt.Println("GOT to processing ...")
 
@@ -138,15 +150,15 @@ func (d *Daemon) processFiles(ctx context.Context, files []os.FileInfo, doneCh c
 		time.Sleep(100 * time.Millisecond)
 
 		lastChecked := time.Now().Add(-d.frequency)
-		if f.ModTime().After(lastChecked) {
-			fmt.Printf("File %s has changed\n", f.Name())
+		if f.ModTime.After(lastChecked) {
+			fmt.Printf("File %s has changed\n", f.Name)
 			doneCh <- struct{}{}
 			break
 		}
 	}
 }
 
-func (d *Daemon) processFilesInParallel(ctx context.Context, files []os.FileInfo, doneCh chan struct{}) {
+func (d *Daemon) processFilesInParallel(ctx context.Context, files []FileInfo, doneCh chan struct{}) {
 	wg := &sync.WaitGroup{}
 
 	stopCh := make(chan struct{})
@@ -158,13 +170,13 @@ func (d *Daemon) processFilesInParallel(ctx context.Context, files []os.FileInfo
 	// did not work.
 	for _, f := range files {
 		wg.Add(1)
-		go func(wg *sync.WaitGroup, f os.FileInfo, doneCh chan struct{}, stopCh chan struct{}) {
+		go func(wg *sync.WaitGroup, f FileInfo, doneCh chan struct{}, stopCh chan struct{}) {
 			defer wg.Done()
 			time.Sleep(100 * time.Millisecond)
 
 			lastChecked := time.Now().Add(-d.frequency)
-			if f.ModTime().After(lastChecked) {
-				fmt.Printf("File %s has changed\n", f.Name())
+			if f.ModTime.After(lastChecked) {
+				fmt.Printf("File %s has changed\n", f.Name)
 				stopCh <- struct{}{}
 				return
 			}
