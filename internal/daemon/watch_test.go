@@ -35,7 +35,7 @@ func TestDaemon_CollectFiles(t *testing.T) {
 				Excluded:  []string{},
 				Frequency: 3,
 			},
-			want: []string{"test.go", "test1.go", "test.go", "test2.go"},
+			want: []string{"test.go", "test1.go", "test.go", "test2.go", "test.go"},
 		},
 		{
 			name: "got correctly all files - with one individual file exclusion",
@@ -46,7 +46,7 @@ func TestDaemon_CollectFiles(t *testing.T) {
 				Excluded:  []string{"fixtures/basepath/subdir1/test.go"},
 				Frequency: 3,
 			},
-			want: []string{"test1.go", "test.go", "test2.go"},
+			want: []string{"test1.go", "test.go", "test2.go", "test.go"},
 		},
 		{
 			name: "got correctly all files - with individual file exclusions",
@@ -57,7 +57,7 @@ func TestDaemon_CollectFiles(t *testing.T) {
 				Excluded:  []string{"fixtures/basepath/subdir1/test.go", "fixtures/basepath/subdir2/test2.go"},
 				Frequency: 3,
 			},
-			want: []string{"test1.go", "test.go"},
+			want: []string{"test1.go", "test.go", "test.go"},
 		},
 		{
 			name: "got correctly all files - with regex file exclusions",
@@ -68,7 +68,18 @@ func TestDaemon_CollectFiles(t *testing.T) {
 				Excluded:  []string{"fixtures/basepath/subdir1/*", "fixtures/basepath/subdir2/test.go"},
 				Frequency: 3,
 			},
-			want: []string{"test2.go"},
+			want: []string{"test2.go", "test.go"},
+		},
+		{
+			name: "got correctly all files - excluding file of the same name in multiple dirs",
+			fields: fields{
+				BasePath:  "fixtures/basepath",
+				Extention: ".go",
+				Command:   "echo \"Hello world\"",
+				Excluded:  []string{"test.go"},
+				Frequency: 3,
+			},
+			want: []string{"test1.go", "test2.go"},
 		},
 	}
 	for _, tt := range tests {
