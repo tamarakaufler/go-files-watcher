@@ -408,20 +408,18 @@ func TestDaemon_ProcessFilesInParallel(t *testing.T) {
 
 			// Within this gouroutine we verify
 			go func() {
-				timeout1 := time.After(time.Duration(tt.fields.Frequency+1) * time.Second)
-				timeout2 := time.After(time.Duration(tt.fields.Frequency+1) * time.Second)
-
+				timeout := time.After(time.Duration(tt.fields.Frequency+1) * time.Second)
 				if tt.expectChange {
 					select {
 					case <-tt.args.doneCh: // receiving on this channel is expected if a change is detected
-					case <-timeout1:
+					case <-timeout:
 						t.Error("TestDaemon_ProcessFilesInParallel - change should have been detected")
 					}
 				} else {
 					select {
 					case <-tt.args.doneCh: // receiving on this channel is not expected as no change happened
 						t.Error("TestDaemon_ProcessFilesInParallel - change was detected")
-					case <-timeout2:
+					case <-timeout:
 					}
 				}
 			}()
