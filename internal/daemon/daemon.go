@@ -36,7 +36,7 @@ func New(ops ...Option) *Daemon {
 		frequency: time.Duration(time.Duration(f) * time.Second),
 
 		cmdMux:  &sync.Mutex{},
-		Command: "la -la",
+		Command: "echo \"Hello world\"",
 
 		doneMux:  &sync.Mutex{},
 		doneChan: make(chan struct{}),
