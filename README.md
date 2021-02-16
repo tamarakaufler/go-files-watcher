@@ -30,7 +30,4 @@ stop further looping and to stop already spun up gouroutines.
 
 # TODO
 
-* Makefile
-* golanci-lint
-
 * implement version 2 suitable for running in a Docker container
