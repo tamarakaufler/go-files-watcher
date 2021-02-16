@@ -9,13 +9,17 @@ import (
 type Daemon struct {
 	BasePath  string
 	Extention string
-	Command   string
 	Excluded  []string
 	Frequency int32
 	frequency time.Duration
-	doneChan  chan struct{}
 
-	mux *sync.Mutex
+	// mutex protects sending on the doneChan
+	doneMux  *sync.Mutex
+	doneChan chan struct{}
+
+	// mutex protects running of the command
+	cmdMux  *sync.Mutex
+	Command string
 }
 
 // Option provides a way to customise the
@@ -27,12 +31,15 @@ func New(ops ...Option) *Daemon {
 	d := &Daemon{
 		BasePath:  ".",
 		Extention: ".go",
-		Command:   "la -la",
 		Excluded:  []string{},
 		Frequency: f,
 		frequency: time.Duration(time.Duration(f) * time.Second),
-		doneChan:  make(chan struct{}),
-		mux:       &sync.Mutex{},
+
+		cmdMux:  &sync.Mutex{},
+		Command: "la -la",
+
+		doneMux:  &sync.Mutex{},
+		doneChan: make(chan struct{}),
 	}
 
 	for _, o := range ops {

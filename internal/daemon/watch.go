@@ -42,7 +42,7 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 				fmt.Println("You interrupted me 👹!")
 				os.Exit(0)
 			case <-doneCh:
-				d.mux.Lock()
+				d.cmdMux.Lock()
 
 				cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
 				// these can be commented out if not needed
@@ -52,11 +52,11 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 				if err != nil {
 					fmt.Printf("ERROR: %s\n", errors.Wrap(err, "error occurred processing during file watch"))
 					cancelCh <- struct{}{}
-					d.mux.Unlock()
+					d.cmdMux.Unlock()
 					continue
 				}
 				fmt.Print("command completed successfully\n\n")
-				d.mux.Unlock()
+				d.cmdMux.Unlock()
 			}
 		}
 	}()
@@ -76,7 +76,25 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 
 			// implementation 3
 			files := d.CollectFiles(ctxR)
-			d.ProcessFilesInParallel(ctxR, files, doneCh)
+
+			// Creating a buffered channel will avoid leaking goroutines. This would  // happen if there are still running goroutines after one finds a change
+			// and sends to a done channel. If the done channel is not buffered, then
+			// some of the running gouroutines may also try to send to the done
+			// channel and would be blocked forever, ie would start leaking.
+			doneAllCh := make(chan struct{}, len(files))
+
+			go func(doneAllCh, doneCh chan struct{}) {
+				select {
+				case <-doneAllCh:
+					d.doneMux.Lock()
+					doneCh <- struct{}{}
+					d.doneMux.Unlock()
+				case <-time.After(d.frequency * 2):
+					return
+				}
+			}(doneAllCh, doneCh)
+
+			d.ProcessFilesInParallel(ctxR, files, doneAllCh)
 		case <-cancelCh:
 			cancel()
 		}
@@ -167,7 +185,7 @@ func (d *Daemon) ProcessFilesInParallel(ctx context.Context, files []FileInfo, d
 
 	// Files are checked in parallel. When a change is found, a message is sent
 	// to the doneCh channel to interrupt the looping through the rest of the files. When no chenge is found, a message is sent to the continueCh channel to continue looping.
-	// Note: I triend to use select default to continue the looping but that
+	// Note: I tried to use select default to continue the looping but that
 	// did not work.
 	fmt.Println("---------------")
 LOOP:

@@ -376,7 +376,7 @@ func TestDaemon_ProcessFilesInParallel(t *testing.T) {
 			},
 			args: args{
 				ctx:    context.Background(),
-				doneCh: make(chan struct{}),
+				doneCh: make(chan struct{}, 5),
 			},
 			expectChange: false,
 		},
@@ -391,12 +391,13 @@ func TestDaemon_ProcessFilesInParallel(t *testing.T) {
 			},
 			args: args{
 				ctx:    context.Background(),
-				doneCh: make(chan struct{}),
+				doneCh: make(chan struct{}, 5),
 			},
 			expectChange: true,
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			d := daemon.New(
 				daemon.WithBasePath(tt.fields.BasePath),
@@ -407,18 +408,26 @@ func TestDaemon_ProcessFilesInParallel(t *testing.T) {
 
 			// Within this gouroutine we verify
 			go func() {
-				timeout := time.After(time.Duration(tt.fields.Frequency+1) * time.Second)
+				timeout1 := time.After(time.Duration(tt.fields.Frequency+1) * time.Second)
+				timeout2 := time.After(time.Duration(tt.fields.Frequency+1) * time.Second)
+
 				if tt.expectChange {
 					select {
 					case <-tt.args.doneCh: // receiving on this channel is expected if a change is detected
-					case <-timeout:
+					case _, ok := <-timeout1:
+						if !ok {
+							break
+						}
 						t.Error("TestDaemon_ProcessFilesInParallel - change should have been detected")
 					}
 				} else {
 					select {
 					case <-tt.args.doneCh: // receiving on this channel is not expected as no change happened
 						t.Error("TestDaemon_ProcessFilesInParallel - change was detected")
-					case <-timeout:
+					case _, ok := <-timeout2:
+						if !ok {
+							break
+						}
 					}
 				}
 			}()
