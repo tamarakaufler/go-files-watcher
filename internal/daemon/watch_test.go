@@ -22,9 +22,10 @@ func TestDaemon_CollectFiles(t *testing.T) {
 		Frequency int32
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		want   []string
+		name    string
+		fields  fields
+		want    []string
+		wantErr bool
 	}{
 		{
 			name: "got correctly all files - no exclusions",
@@ -35,7 +36,8 @@ func TestDaemon_CollectFiles(t *testing.T) {
 				Excluded:  []string{},
 				Frequency: 3,
 			},
-			want: []string{"test.go", "test1.go", "test.go", "test2.go", "test.go"},
+			want:    []string{"test.go", "test1.go", "test.go", "test2.go", "test.go"},
+			wantErr: false,
 		},
 		{
 			name: "got correctly all files - with one individual file exclusion",
@@ -46,7 +48,8 @@ func TestDaemon_CollectFiles(t *testing.T) {
 				Excluded:  []string{"fixtures/basepath/subdir1/test.go"},
 				Frequency: 3,
 			},
-			want: []string{"test1.go", "test.go", "test2.go", "test.go"},
+			want:    []string{"test1.go", "test.go", "test2.go", "test.go"},
+			wantErr: false,
 		},
 		{
 			name: "got correctly all files - with individual file exclusions",
@@ -57,7 +60,8 @@ func TestDaemon_CollectFiles(t *testing.T) {
 				Excluded:  []string{"fixtures/basepath/subdir1/test.go", "fixtures/basepath/subdir2/test2.go"},
 				Frequency: 3,
 			},
-			want: []string{"test1.go", "test.go", "test.go"},
+			want:    []string{"test1.go", "test.go", "test.go"},
+			wantErr: false,
 		},
 		{
 			name: "got correctly all files - with regex file exclusions",
@@ -68,7 +72,8 @@ func TestDaemon_CollectFiles(t *testing.T) {
 				Excluded:  []string{"fixtures/basepath/subdir1/*", "fixtures/basepath/subdir2/test.go"},
 				Frequency: 3,
 			},
-			want: []string{"test2.go", "test.go"},
+			want:    []string{"test2.go", "test.go"},
+			wantErr: false,
 		},
 		{
 			name: "got correctly all files - excluding file of the same name in multiple dirs",
@@ -79,7 +84,8 @@ func TestDaemon_CollectFiles(t *testing.T) {
 				Excluded:  []string{"test.go"},
 				Frequency: 3,
 			},
-			want: []string{"test1.go", "test2.go"},
+			want:    []string{"test1.go", "test2.go"},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -92,8 +98,18 @@ func TestDaemon_CollectFiles(t *testing.T) {
 				daemon.WithFrequency(tt.fields.Frequency),
 			)
 
-			got := d.CollectFiles(ctx)
+			// got, err := d.CollectFiles(ctx)
+			// gotNames := extractNames(got)
+			// if !reflect.DeepEqual(gotNames, tt.want) {
+			// 	t.Errorf("Daemon.CollectFiles() = %v, want %v", gotNames, tt.want)
+			// }
+
+			got, err := d.CollectFiles(ctx)
 			gotNames := extractNames(got)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Daemon.CollectFiles() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
 			if !reflect.DeepEqual(gotNames, tt.want) {
 				t.Errorf("Daemon.CollectFiles() = %v, want %v", gotNames, tt.want)
 			}
@@ -424,7 +440,10 @@ func TestDaemon_ProcessFilesInParallel(t *testing.T) {
 				}
 			}()
 
-			files := d.CollectFiles(tt.args.ctx)
+			files, err := d.CollectFiles(tt.args.ctx)
+			if err != nil {
+				t.Errorf("TestDaemon_ProcessFilesInParallel - %s", err)
+			}
 			if tt.expectChange {
 				// simulate change
 				err := os.Chtimes(files[0].Path, time.Now(), time.Now())

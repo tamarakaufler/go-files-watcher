@@ -33,40 +33,15 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 	// use when a change is detected, after successfully running the command,
 	// to cancel already created goroutines
 	cancelCh := make(chan struct{})
+
+	// Starts a gouroutine checking on the run outcome, running the command as required
+	d.runOutcomeChecker(cmdParts, sigCh, doneCh, cancelCh)
+
 	tick := time.NewTicker(d.frequency)
-
-	go func() {
-		for {
-			select {
-			case <-sigCh:
-				fmt.Println("You interrupted me 👹!")
-				os.Exit(0)
-			case <-doneCh:
-				d.cmdMux.Lock()
-
-				cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
-				// these can be commented out if not needed
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				err := cmd.Run()
-				if err != nil {
-					fmt.Printf("ERROR: %s\n", errors.Wrap(err, "error occurred processing during file watch"))
-					cancelCh <- struct{}{}
-					d.cmdMux.Unlock()
-					continue
-				}
-				fmt.Print("command completed successfully\n\n")
-				d.cmdMux.Unlock()
-			}
-		}
-	}()
-
 	for {
 		ctxR, cancel := context.WithCancel(ctx)
 		select {
 		case <-tick.C:
-			//fmt.Println("time to repeat")
-
 			// implementation 1
 			// d.walkThroughFiles(ctxR, doneCh)
 
@@ -75,8 +50,13 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 			// d.processFiles(ctxR, files, doneCh)
 
 			// implementation 3
-			files := d.CollectFiles(ctxR)
+			files, err := d.CollectFiles(ctxR)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
 
+			//nolint:lll
 			// Creating a buffered channel will avoid leaking goroutines. This would  // happen if there are still running goroutines after one finds a change
 			// and sends to a done channel. If the done channel is not buffered, then
 			// some of the running gouroutines may also try to send to the done
@@ -104,6 +84,7 @@ func (d *Daemon) Watch(ctx context.Context, sigCh chan os.Signal) {
 // CollectFiles checks if any watched file has changed.
 // The Walk function continues the walk while theere is no error and stops
 // when the filepath.WalkFunc exits with error.
+//nolint:unused,errcheck
 func (d *Daemon) walkThroughFiles(ctx context.Context, doneCh chan struct{}) {
 	filepath.Walk(d.BasePath, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() ||
@@ -127,10 +108,10 @@ func (d *Daemon) walkThroughFiles(ctx context.Context, doneCh chan struct{}) {
 }
 
 // CollectFiles checks if any watched file has changed
-func (d *Daemon) CollectFiles(ctx context.Context) []FileInfo {
+func (d *Daemon) CollectFiles(ctx context.Context) ([]FileInfo, error) {
 	var files []FileInfo
 
-	filepath.Walk(d.BasePath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(d.BasePath, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() ||
 			strings.HasPrefix(path, ".git") ||
 			(!info.IsDir() && filepath.Ext(path) != d.Extention) {
@@ -156,10 +137,14 @@ func (d *Daemon) CollectFiles(ctx context.Context) []FileInfo {
 
 		return nil
 	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "error collecting files from %s", d.BasePath)
+	}
 
-	return files
+	return files, nil
 }
 
+//nolint:unused
 func (d *Daemon) processFiles(ctx context.Context, files []FileInfo, doneCh chan struct{}) {
 
 	fmt.Println("GOT to processing ...")
@@ -184,7 +169,9 @@ func (d *Daemon) ProcessFilesInParallel(ctx context.Context, files []FileInfo, d
 	continueCh := make(chan struct{})
 
 	// Files are checked in parallel. When a change is found, a message is sent
-	// to the doneCh channel to interrupt the looping through the rest of the files. When no chenge is found, a message is sent to the continueCh channel to continue looping.
+	// to the doneCh channel to interrupt the looping through the rest of the
+	// files. When no chenge is found, a message is sent to the continueCh
+	// channel to continue looping.
 	// Note: I tried to use select default to continue the looping but that
 	// did not work.
 	fmt.Println("---------------")
@@ -240,4 +227,32 @@ func (d *Daemon) IsExcluded(ctx context.Context, path, name string) (bool, error
 
 	}
 	return toExclude, nil
+}
+
+func (d *Daemon) runOutcomeChecker(cmdParts []string, sigCh chan os.Signal, doneCh, cancelCh chan struct{}) {
+	go func() {
+		for {
+			select {
+			case <-sigCh:
+				fmt.Println("You interrupted me 👹!")
+				os.Exit(0)
+			case <-doneCh:
+				d.cmdMux.Lock()
+
+				cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
+				// these can be commented out if not needed
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				err := cmd.Run()
+				if err != nil {
+					fmt.Printf("ERROR: %s\n", errors.Wrap(err, "error occurred processing during file watch"))
+					cancelCh <- struct{}{}
+					d.cmdMux.Unlock()
+					continue
+				}
+				fmt.Print("command completed successfully\n\n")
+				d.cmdMux.Unlock()
+			}
+		}
+	}()
 }
