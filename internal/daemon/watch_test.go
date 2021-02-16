@@ -414,20 +414,14 @@ func TestDaemon_ProcessFilesInParallel(t *testing.T) {
 				if tt.expectChange {
 					select {
 					case <-tt.args.doneCh: // receiving on this channel is expected if a change is detected
-					case _, ok := <-timeout1:
-						if !ok {
-							break
-						}
+					case <-timeout1:
 						t.Error("TestDaemon_ProcessFilesInParallel - change should have been detected")
 					}
 				} else {
 					select {
 					case <-tt.args.doneCh: // receiving on this channel is not expected as no change happened
 						t.Error("TestDaemon_ProcessFilesInParallel - change was detected")
-					case _, ok := <-timeout2:
-						if !ok {
-							break
-						}
+					case <-timeout2:
 					}
 				}
 			}()
