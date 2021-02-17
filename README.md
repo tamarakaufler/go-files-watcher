@@ -1,6 +1,6 @@
 # Synopsis
 
-Go implementation of a daemon for montoring file changes and running a command when change is detected.
+Go implementation of a daemon for montoring file changes and running a command when a change is detected.
 
 The configurable options are:
 
@@ -16,18 +16,18 @@ The configurable options are:
 
 There are 3 progressive implementations, from the initial one using directly filepath.Walk,
 an intemediate one as a preparation for the third parallelized third implementation. First two
-versions are commented out ((*Daemon).Watch method).
+versions are commented out (in the (*Daemon).Watch method).
 
-## Parellelized implementation
+## Details
 
-Uses filepath.Walk to collect files that are under watch, ie excluding those that:
-  * dont have the required extension
-  * are configured to be excluded
+The base directory, file extension and exclusions (path, file name (wildcard character * can be used))
+provide the check criteria, together with the frequency, at which the check run happens.
 
-The resulting files are looped through, each processed in a separate goroutine to check whether the file
-has been modified since the last check. When a change has been detected a message is sent to a channel to
-stop further looping and to stop already spun up gouroutines.
+File information (path, file name, modification time) is collected into a list.
+The list is processed and the file checks are parallelized, each running in a goroutine. When
+the first change is detected, this particular run finishes, stopping the check of the rest
+of the files and cancelling already running gouroutines.
 
-# TODO
+Tests are provided.
 
-* implement version 2 suitable for running in a Docker container
+Quality of the Go code is checked using the golangci-lint utility.
