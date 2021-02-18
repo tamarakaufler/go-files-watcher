@@ -23,6 +23,8 @@ versions are commented out (in the (*Daemon).Watch method).
 The base directory, file extension and exclusions (path, file name (wildcard character * can be used))
 provide the check criteria, together with the frequency, at which the check run happens.
 
+Customization is done through option functions provided during creating of a new Daemon instance.
+
 File information (path, file name, modification time) is collected into a list.
 The list is processed and the file checks are parallelized, each running in a goroutine. When
 the first change is detected, this particular run finishes, stopping the check of the rest
