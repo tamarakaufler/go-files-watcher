@@ -212,7 +212,8 @@ func (d *Daemon) IsExcluded(ctx context.Context, path, name string) (bool, error
 
 	for _, ex := range d.Excluded {
 		// deal with regex
-		if strings.ContainsAny(ex, "*?{}[]()+") {
+		if strings.ContainsAny(ex, "*?{}[]()+*") {
+
 			r, err := regexp.Compile(ex)
 			if err != nil {
 				return false, errors.Wrap(err, "cannot exclude files")
@@ -221,10 +222,9 @@ func (d *Daemon) IsExcluded(ctx context.Context, path, name string) (bool, error
 				return true, nil
 			}
 			// deal with exact matches
-		} else if name == ex || path == ex {
+		} else if name == ex || path == ex || strings.Contains(path, ex) {
 			return true, nil
 		}
-
 	}
 	return toExclude, nil
 }

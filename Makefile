@@ -32,6 +32,9 @@ cover:
 	go test -failfast -coverpkg=./... -coverprofile=$$TMP_COV ./... && \
 	go tool cover -html=$$TMP_COV && rm $$TMP_COV
 
-all: deps lint test cover
+run:
+	go run ./cmd/go-files-watcher/main.go
 
-.PHONY: deps lint test cover
+all: deps lint test build
+
+.PHONY: deps lint test cover build run
